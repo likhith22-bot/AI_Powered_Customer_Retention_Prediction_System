@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="YOUR_DEPLOYMENT_URL">Live Demo</a> •
-  <a href="YOUR_GITHUB_REPOSITORY_URL">GitHub Repository</a> •
+  <a href="https://github.com/likhith22-bot/AI_Powered_Customer_Retention_Prediction_System/tree/main">GitHub Repository</a> •
   <a href="YOUR_LINKEDIN_URL">LinkedIn</a>
 </p>
 
@@ -209,7 +209,7 @@ It provides a practical approach to identifying customers who are likely to chur
 **Likhith Naga Sai Tadikonda**
 
 - **LinkedIn:** [Add LinkedIn Profile URL](YOUR_LINKEDIN_URL)
-- **GitHub:** https://github.com/likhith22-bot/AI_Powered_Customer_Retention_Prediction_System/tree/main
+- **GitHub:** https://github.com/likhith22-bot
 - **Live Deployment:** [View Live Project](YOUR_DEPLOYMENT_URL)
 
 ---
