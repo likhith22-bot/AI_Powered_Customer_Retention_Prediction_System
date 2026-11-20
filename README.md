@@ -1,4 +1,4 @@
-# AI_Powered_Customer_Retention_Prediction_System
+# AI Powered Customer Retention Prediction System
 
 <p align="center">
   <b>Machine Learning | Python | Flask | Scikit-learn</b>
