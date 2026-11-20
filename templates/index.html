@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer churn predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EAEFF5;
+    --panel: #FFFFFF;
+    --ink: #0F1B33;
+    --muted: #5B6880;
+    --line: #D3DBE7;
+    --accent: #2540F5;
+    --accent-soft: #E3E8FF;
+    --risk: #D92D4B;
+    --risk-soft: #FDE8EC;
+    --safe: #0E9F77;
+    --safe-soft: #DDF5EC;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1222;
+      --panel: #121C33;
+      --ink: #E8EEFB;
+      --muted: #93A1BF;
+      --line: #25324F;
+      --accent: #7C8DFF;
+      --accent-soft: #1B2650;
+      --risk: #FF6B84;
+      --risk-soft: #3A1B27;
+      --safe: #3DDBAE;
+      --safe-soft: #12362D;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 24px 72px; }
+
+  header { max-width: 640px; margin-bottom: 40px; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(2.4rem, 5vw, 3.9rem);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    margin: 0 0 14px;
+  }
+  header p { margin: 0; color: var(--muted); font-size: 1.05rem; max-width: 52ch; }
+
+  .layout { display: grid; grid-template-columns: 360px 1fr; gap: 32px; align-items: start; }
+
+  /* ---------- Result panel ---------- */
+  .result {
+    position: sticky; top: 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 32px 28px;
+    text-align: center;
+  }
+  .result.is-risk { border-color: var(--risk); }
+  .result.is-safe { border-color: var(--safe); }
+  .dial { position: relative; width: 220px; height: 220px; margin: 0 auto 22px; }
+  .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .dial .ticks { fill: none; stroke: var(--line); stroke-width: 10; stroke-dasharray: 2 7.6; }
+  .dial .track { fill: none; stroke: var(--line); stroke-width: 10; opacity: .45; }
+  .dial .arc { fill: none; stroke-width: 10; stroke-linecap: round; stroke-dasharray: 528; }
+  .is-risk .arc { stroke: var(--risk); }
+  .is-safe .arc { stroke: var(--safe); }
+  .dial .arc { animation: draw 1.1s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes draw { from { stroke-dashoffset: 528; } }
+  .dial-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .dial-value { font-family: var(--display); font-weight: 800; font-size: 3.4rem; letter-spacing: -0.04em; line-height: 1; }
+  .dial-sub { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+  .is-risk .dial-value, .is-risk .verdict { color: var(--risk); }
+  .is-safe .dial-value, .is-safe .verdict { color: var(--safe); }
+  .verdict { font-family: var(--display); font-weight: 700; font-size: 1.6rem; letter-spacing: -0.02em; margin: 0 0 8px; }
+  .result .note { color: var(--muted); font-size: .95rem; margin: 0; }
+  .empty-dial { fill: none; stroke: var(--line); stroke-width: 10; stroke-dasharray: 2 7.6; }
+  .empty h2 { font-family: var(--display); font-size: 1.35rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .empty p { color: var(--muted); margin: 0; font-size: .95rem; }
+  .empty .dial-value { color: var(--line); }
+  .error {
+    background: var(--risk-soft); color: var(--risk);
+    border-radius: 12px; padding: 12px 14px; font-size: .92rem; margin-top: 16px; text-align: left;
+  }
+
+  /* ---------- Form ---------- */
+  form { display: grid; gap: 20px; }
+  fieldset {
+    margin: 0; border: 1px solid var(--line); background: var(--panel);
+    border-radius: 24px; padding: 28px;
+  }
+  legend {
+    font-family: var(--display); font-weight: 700; font-size: 1.3rem; letter-spacing: -0.02em;
+    padding: 0 10px; margin-left: -10px;
+  }
+  .hint { color: var(--muted); font-size: .9rem; margin: 2px 0 20px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+  .field { min-width: 0; transition: opacity .2s; }
+  .field.wide { grid-column: 1 / -1; }
+  .label { font-weight: 500; font-size: .92rem; margin-bottom: 8px; display: block; }
+
+  .seg { display: inline-flex; flex-wrap: wrap; background: var(--bg); border-radius: 12px; padding: 4px; gap: 2px; max-width: 100%; }
+  .seg label { position: relative; cursor: pointer; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span {
+    display: block; padding: 8px 16px; border-radius: 9px;
+    font-size: .92rem; color: var(--muted); transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+  .seg input:checked + span { background: var(--accent); color: #fff; font-weight: 500; }
+  .seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .seg input:disabled + span { cursor: not-allowed; }
+
+  select, input[type=number] {
+    width: 100%; font: inherit; color: var(--ink);
+    background: var(--bg); border: 1px solid transparent; border-radius: 12px;
+    padding: 11px 14px; transition: border-color .15s;
+  }
+  select:focus-visible, input[type=number]:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .money { position: relative; }
+  .money::before { content: "$"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .money input { padding-left: 28px; }
+
+  .tenure-row { display: flex; align-items: center; gap: 16px; }
+  .tenure-out {
+    font-family: var(--display); font-weight: 800; font-size: 1.8rem; letter-spacing: -0.03em;
+    min-width: 4.6ch; text-align: right;
+  }
+  .tenure-out small { font-family: var(--body); font-weight: 400; font-size: .8rem; color: var(--muted); margin-left: 4px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); height: 28px; }
+
+  .field.is-off { opacity: .4; }
+  .field.is-off .off-note { display: block; }
+  .off-note { display: none; font-size: .8rem; color: var(--muted); margin-top: 6px; }
+
+  .actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    border: 0; border-radius: 14px; padding: 15px 28px;
+    background: var(--accent); color: #fff;
+    transition: transform .12s, filter .15s;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: translateY(1px); }
+  button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  button[disabled] { opacity: .7; cursor: progress; }
+  button.ghost { background: transparent; color: var(--muted); padding-inline: 8px; font-weight: 500; }
+  button.ghost:hover { color: var(--ink); filter: none; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .result { position: static; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 32px 16px 56px; }
+    .grid { grid-template-columns: 1fr; }
+    fieldset { padding: 22px 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+
+{% macro seg(name, options, default) -%}
+<div class="seg" role="radiogroup">
+  {%- for value, text in options %}
+  <label><input type="radio" name="{{ name }}" value="{{ value }}" {% if value == default %}checked{% endif %}><span>{{ text }}</span></label>
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{% set yn = [('No','No'),('Yes','Yes')] %}
+
+<div class="wrap">
+  <header>
+    <h1>Will this customer stay?</h1>
+    <p>Enter a customer’s plan, billing and history. The model estimates how likely they are to cancel.</p>
+  </header>
+
+  <div class="layout">
+
+    <!-- Result -->
+    <aside class="result {% if prediction_text %}{{ 'is-risk' if is_churn else 'is-safe' }}{% endif %}" id="result" aria-live="polite">
+      {% if prediction_text %}
+        {% set has_p = probability is not none %}
+        {% set p = probability if has_p else (1 if is_churn else 0.0) %}
+        <div class="dial">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="ticks" cx="100" cy="100" r="84"/>
+            <circle class="track" cx="100" cy="100" r="68"/>
+            <circle class="arc" cx="100" cy="100" r="68" style="stroke-dashoffset: {{ (428 * (1 - p)) | round(1) }}; stroke-dasharray: 428;"/>
+          </svg>
+          <div class="dial-center">
+            {% if has_p %}
+              <div class="dial-value">{{ (probability * 100) | round | int }}%</div>
+              <div class="dial-sub">chance of churn</div>
+            {% else %}
+              <div class="dial-value">{{ '!' if is_churn else '✓' }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <p class="verdict">{{ prediction_text }}</p>
+        <p class="note">
+          {% if is_churn %}This profile looks like customers who cancel. A retention offer or a contract upgrade could help.
+          {% else %}This profile looks like customers who stay. No action needed.{% endif %}
+        </p>
+      {% else %}
+        <div class="empty">
+          <div class="dial">
+            <svg viewBox="0 0 200 200" aria-hidden="true">
+              <circle class="empty-dial" cx="100" cy="100" r="84"/>
+              <circle class="track" cx="100" cy="100" r="68"/>
+            </svg>
+            <div class="dial-center"><div class="dial-value">--</div></div>
+          </div>
+          <h2>No prediction yet</h2>
+          <p>Fill in the customer profile, then select Predict churn.</p>
+        </div>
+      {% endif %}
+      {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+    </aside>
+
+    <!-- Form -->
+    <form action="/predict" method="POST" id="form">
+
+      <fieldset>
+        <legend>About the customer</legend>
+        <div class="grid">
+          <div class="field"><span class="label">Gender</span>{{ seg('gender', [('Female','Female'),('Male','Male')], 'Female') }}</div>
+          <div class="field"><span class="label">Senior citizen</span>{{ seg('SeniorCitizen', [('0','No'),('1','Yes')], '0') }}</div>
+          <div class="field"><span class="label">Has a partner</span>{{ seg('Partner', yn, 'No') }}</div>
+          <div class="field"><span class="label">Has dependents</span>{{ seg('Dependents', yn, 'No') }}</div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Services</legend>
+        <p class="hint">Add-ons switch off automatically when the customer has no phone or internet plan.</p>
+        <div class="grid">
+          <div class="field"><span class="label">Phone service</span>{{ seg('PhoneService', yn, 'Yes') }}</div>
+          <div class="field" id="f-multi">
+            <span class="label">Multiple lines</span>{{ seg('MultipleLines', yn, 'No') }}
+            <span class="off-note">Needs phone service</span>
+          </div>
+          <div class="field wide"><span class="label">Internet service</span>{{ seg('InternetService', [('DSL','DSL'),('Fiber optic','Fiber optic'),('No','None')], 'DSL') }}</div>
+
+          {% for name, text in [('OnlineSecurity','Online security'),('OnlineBackup','Online backup'),('DeviceProtection','Device protection'),('TechSupport','Tech support'),('StreamingTV','Streaming TV'),('StreamingMovies','Streaming movies')] %}
+          <div class="field addon">
+            <span class="label">{{ text }}</span>{{ seg(name, yn, 'No') }}
+            <span class="off-note">Needs internet service</span>
+          </div>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Account and billing</legend>
+        <div class="grid">
+          <div class="field wide"><span class="label">Contract</span>{{ seg('Contract', [('Month-to-month','Month-to-month'),('One year','One year'),('Two year','Two year')], 'Month-to-month') }}</div>
+          <div class="field"><span class="label">Paperless billing</span>{{ seg('PaperlessBilling', yn, 'Yes') }}</div>
+          <div class="field">
+            <label class="label" for="PaymentMethod">Payment method</label>
+            <select name="PaymentMethod" id="PaymentMethod">
+              <option>Electronic check</option>
+              <option>Mailed check</option>
+              <option>Bank transfer (automatic)</option>
+              <option>Credit card (automatic)</option>
+            </select>
+          </div>
+          <div class="field wide">
+            <label class="label" for="tenure">Tenure</label>
+            <div class="tenure-row">
+              <input type="range" id="tenure" name="tenure" min="0" max="72" step="1" value="12">
+              <div class="tenure-out"><span id="tenure-val">12</span><small>months</small></div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="MonthlyCharges">Monthly charges</label>
+            <div class="money"><input type="number" id="MonthlyCharges" name="MonthlyCharges" min="0" step="0.01" value="70.00" required></div>
+          </div>
+          <div class="field">
+            <label class="label" for="TotalCharges">Total charges</label>
+            <div class="money"><input type="number" id="TotalCharges" name="TotalCharges" min="0" step="0.01" value="840.00" required></div>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" id="submit">Predict churn</button>
+        <button type="button" class="ghost" id="reset">Reset form</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const saved = {{ (form or {}) | tojson }};
+  const form = document.getElementById('form');
+  const tenure = document.getElementById('tenure');
+  const monthly = document.getElementById('MonthlyCharges');
+  const total = document.getElementById('TotalCharges');
+  let totalEdited = false;
+
+  // Restore the last submitted values after the page reloads with a result.
+  Object.entries(saved).forEach(([name, value]) => {
+    const els = form.querySelectorAll('[name="' + name + '"]');
+    els.forEach(el => {
+      if (el.type === 'radio') el.checked = (el.value === value);
+      else el.value = value;
+    });
+  });
+  if (saved.TotalCharges) totalEdited = true;
+
+  function syncTenure() { document.getElementById('tenure-val').textContent = tenure.value; }
+  function syncTotal() {
+    if (totalEdited) return;
+    total.value = (Number(tenure.value) * Number(monthly.value || 0)).toFixed(2);
+  }
+  tenure.addEventListener('input', () => { syncTenure(); syncTotal(); });
+  monthly.addEventListener('input', syncTotal);
+  total.addEventListener('input', () => { totalEdited = true; });
+
+  function setGroup(field, off) {
+    field.classList.toggle('is-off', off);
+    field.querySelectorAll('input').forEach(i => { i.disabled = off; });
+  }
+  function syncDependencies() {
+    const phone = form.querySelector('[name="PhoneService"]:checked').value;
+    const internet = form.querySelector('[name="InternetService"]:checked').value;
+    setGroup(document.getElementById('f-multi'), phone === 'No');
+    document.querySelectorAll('.addon').forEach(f => setGroup(f, internet === 'No'));
+  }
+  form.addEventListener('change', syncDependencies);
+
+  form.addEventListener('submit', () => {
+    const b = document.getElementById('submit');
+    b.disabled = true; b.textContent = 'Predicting…';
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    form.reset(); totalEdited = false; syncTenure(); syncTotal(); syncDependencies();
+  });
+
+  syncTenure(); syncDependencies();
+  if (saved.tenure && window.innerWidth < 900) {
+    document.getElementById('result').scrollIntoView({ block: 'start' });
+  }
+</script>
+</body>
+</html>
